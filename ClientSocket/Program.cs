@@ -7,72 +7,76 @@ namespace ClientSocket
 {
     class Program
     {
-        static int Main(string[] args)
+        static void Main(string[] args)
         {
-            StartClient();  
-            return 0;
+            StartClient();
         }
         public static void StartClient()
         {
-            byte[] bytes = new byte[1024];
+            Console.OutputEncoding = Encoding.UTF8;
+
+            byte[] data = new byte[1024];
+
+            string input, stringData;
+
+            IPEndPoint ipep = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
+
+            Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             try
             {
-                // Connect to a Remote server  
-                // Get Host IP Address that is used to establish a connection  
-                // In this case, we get one IP address of localhost that is IP : 127.0.0.1  
-                // If a host has multiple addresses, you will get a list of addresses  
-                IPHostEntry host = Dns.GetHostEntry("localhost");
-                IPAddress ipAddress = host.AddressList[0];
-                IPEndPoint remoteEP = new IPEndPoint(ipAddress, 11000);
-
-                // Create a TCP/IP  socket.    
-                Socket sender = new Socket(ipAddress.AddressFamily,
-                    SocketType.Stream, ProtocolType.Tcp);
-
-                // Connect the socket to the remote endpoint. Catch any errors.    
-                try
-                {
-                    // Connect to Remote EndPoint  
-                    sender.Connect(remoteEP);
-
-                    Console.WriteLine("Socket connected to {0}",
-                        sender.RemoteEndPoint.ToString());
-
-                    // Encode the data string into a byte array.    
-                    byte[] msg = Encoding.ASCII.GetBytes("This is a test<EOF>");
-
-                    // Send the data through the socket.    
-                    int bytesSent = sender.Send(msg);
-
-                    // Receive the response from the remote device.    
-                    int bytesRec = sender.Receive(bytes);
-                    Console.WriteLine("Echoed test = {0}",
-                        Encoding.ASCII.GetString(bytes, 0, bytesRec));
-
-                    // Release the socket.    
-                    sender.Shutdown(SocketShutdown.Both);
-                    sender.Close();
-
-                }
-                catch (ArgumentNullException ane)
-                {
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-                catch (SocketException se)
-                {
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
-                }
+                server.Connect(ipep);
 
             }
-            catch (Exception e)
+            catch (SocketException e)
             {
+                Console.WriteLine("Unable to connect to server.");
+
                 Console.WriteLine(e.ToString());
+
+                return;
             }
+
+            int recv = server.Receive(data);
+
+            stringData = Encoding.UTF8.GetString(data, 0, recv);
+
+            Console.WriteLine(stringData);
+
+            while (true)
+            {
+                input = Console.ReadLine();
+                Console.SetCursorPosition(0, Console.CursorTop - 1);
+
+                if (input == "exit")
+
+                    break;
+
+                Console.WriteLine("You: " + input);
+
+                server.Send(Encoding.UTF8.GetBytes(input));
+
+                data = new byte[1024];
+
+                recv = server.Receive(data);
+
+                stringData = Encoding.UTF8.GetString(data, 0, recv);
+
+                byte[] utf8string = System.Text.Encoding.UTF8.GetBytes(stringData);
+
+                Console.WriteLine("Server: " + stringData);
+            }
+
+            Console.WriteLine("Disconnecting from server...");
+
+            server.Shutdown(SocketShutdown.Both);
+
+            server.Close();
+
+            Console.WriteLine("Disconnected!");
+
+            Console.ReadLine();
+
         }
     }
 }

@@ -7,64 +7,69 @@ namespace SocketProgram
 {
     class Program
     {
-        static int Main(string[] args)
+        static void Main(string[] args)
         {
             StartServer();
-            return 0;
         }
         public static void StartServer()
         {
-            // Get Host IP Address that is used to establish a connection  
-            // In this case, we get one IP address of localhost that is IP : 127.0.0.1  
-            // If a host has multiple addresses, you will get a list of addresses  
-            IPHostEntry host = Dns.GetHostEntry("localhost");
-            IPAddress ipAddress = host.AddressList[0];
-            IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 11000);
+            Console.OutputEncoding = Encoding.UTF8;
 
+            int recv;
 
-            try
+            byte[] data = new byte[1024];
+
+            IPEndPoint ipep = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
+
+            Socket newsock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            newsock.Bind(ipep);
+
+            newsock.Listen(10);
+
+            Console.WriteLine("Waiting for a client...");
+
+            Socket client = newsock.Accept();
+
+            IPEndPoint clientep = (IPEndPoint)client.RemoteEndPoint;
+
+            Console.WriteLine("Connected with {0} at port {1}", clientep.Address, clientep.Port);
+
+            string welcome = "Welcome to the chat";
+
+            data = Encoding.UTF8.GetBytes(welcome);
+
+            client.Send(data, data.Length, SocketFlags.None);
+
+            string input;
+
+            while (true)
             {
 
-                // Create a Socket that will use Tcp protocol      
-                Socket listener = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                // A Socket must be associated with an endpoint using the Bind method  
-                listener.Bind(localEndPoint);
-                // Specify how many requests a Socket can listen before it gives Server busy response.  
-                // We will listen 10 requests at a time  
-                listener.Listen(10);
+                data = new byte[1024];
 
-                Console.WriteLine("Waiting for a connection...");
-                Socket handler = listener.Accept();
+                recv = client.Receive(data);
 
-                // Incoming data from the client.    
-                string data = null;
-                byte[] bytes = null;
+                if (recv == 0)
 
-                while (true)
-                {
-                    bytes = new byte[1024];
-                    int bytesRec = handler.Receive(bytes);
-                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                    if (data.IndexOf("<EOF>") > -1)
-                    {
-                        break;
-                    }
-                }
+                    break;
 
-                Console.WriteLine("Text received : {0}", data);
+                Console.WriteLine("Client: " + Encoding.UTF8.GetString(data, 0, recv));
 
-                byte[] msg = Encoding.ASCII.GetBytes(data);
-                handler.Send(msg);
-                handler.Shutdown(SocketShutdown.Both);
-                handler.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.ToString());
+                input = Console.ReadLine();
+
+                Console.WriteLine("You: " + input);
+
+                client.Send(Encoding.UTF8.GetBytes(input));
             }
 
-            Console.WriteLine("\n Press any key to continue...");
-            Console.ReadKey();
+            Console.WriteLine("Disconnected from {0}", clientep.Address);
+
+            client.Close();
+
+            newsock.Close();
+
+            Console.ReadLine();
         }
     }
 }
