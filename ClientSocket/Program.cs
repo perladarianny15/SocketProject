@@ -1,7 +1,9 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 
 namespace ClientSocket
 {
@@ -13,70 +15,45 @@ namespace ClientSocket
         }
         public static void StartClient()
         {
-            Console.OutputEncoding = Encoding.UTF8;
+            IPAddress ip = IPAddress.Parse("127.0.0.1");
+            int port = 9050;
+            TcpClient client = new TcpClient();
+            client.Connect(ip, port);
+            Console.WriteLine("client connected!!");
+            NetworkStream ns = client.GetStream();
+            Thread thread = new Thread(o => ReceiveData((TcpClient)o));
 
-            byte[] data = new byte[1024];
+            thread.Start(client);
 
-            string input, stringData;
-
-            IPEndPoint ipep = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
-
-            Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-            try
-            {
-                server.Connect(ipep);
-
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine("Unable to connect to server.");
-
-                Console.WriteLine(e.ToString());
-
-                return;
-            }
-
-            int recv = server.Receive(data);
-
-            stringData = Encoding.UTF8.GetString(data, 0, recv);
-
-            Console.WriteLine(stringData);
+            string message;
 
             while (true)
             {
-                input = Console.ReadLine();
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-
-                if (input == "exit")
-
+                message = Console.ReadLine();
+                if (message == "exit")
+                {
+                    client.Client.Shutdown(SocketShutdown.Send);
+                    thread.Join();
+                    ns.Close();
+                    client.Close();
+                    Console.WriteLine("disconnect from server!!");
+                    Console.ReadKey();
                     break;
-
-                Console.WriteLine("You: " + input);
-
-                server.Send(Encoding.UTF8.GetBytes(input));
-
-                data = new byte[1024];
-
-                recv = server.Receive(data);
-
-                stringData = Encoding.UTF8.GetString(data, 0, recv);
-
-                byte[] utf8string = System.Text.Encoding.UTF8.GetBytes(stringData);
-
-                Console.WriteLine("Server: " + stringData);
+                }
+                byte[] buffer = Encoding.ASCII.GetBytes(message);
+                ns.Write(buffer, 0, buffer.Length);
             }
+        }
+        static void ReceiveData(TcpClient client)
+        {
+            NetworkStream ns = client.GetStream();
+            byte[] receivedBytes = new byte[1024];
+            int byte_count;
 
-            Console.WriteLine("Disconnecting from server...");
-
-            server.Shutdown(SocketShutdown.Both);
-
-            server.Close();
-
-            Console.WriteLine("Disconnected!");
-
-            Console.ReadLine();
-
+            while ((byte_count = ns.Read(receivedBytes, 0, receivedBytes.Length)) > 0)
+            {
+                Console.Write("Msg:" + Encoding.ASCII.GetString(receivedBytes, 0, byte_count));
+            }
         }
     }
 }

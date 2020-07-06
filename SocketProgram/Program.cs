@@ -1,75 +1,91 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 
 namespace SocketProgram
 {
     class Program
     {
+        static readonly object _lock = new object();
+        static readonly Dictionary<int, TcpClient> list_clients = new Dictionary<int, TcpClient>();
+
         static void Main(string[] args)
         {
             StartServer();
         }
+       
         public static void StartServer()
         {
-            Console.OutputEncoding = Encoding.UTF8;
-
-            int recv;
-
-            byte[] data = new byte[1024];
-
-            IPEndPoint ipep = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9050);
-
-            Socket newsock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-            newsock.Bind(ipep);
-
-            newsock.Listen(10);
+            int count = 1;
 
             Console.WriteLine("Waiting for a client...");
 
-            Socket client = newsock.Accept();
-
-            IPEndPoint clientep = (IPEndPoint)client.RemoteEndPoint;
-
-            Console.WriteLine("Connected with {0} at port {1}", clientep.Address, clientep.Port);
-
-            string welcome = "Welcome to the chat";
-
-            data = Encoding.UTF8.GetBytes(welcome);
-
-            client.Send(data, data.Length, SocketFlags.None);
-
-            string input;
+            TcpListener ServerSocket = new TcpListener(IPAddress.Any, 9050);
+            ServerSocket.Start();
 
             while (true)
             {
+                TcpClient client = ServerSocket.AcceptTcpClient();
 
-                data = new byte[1024];
+                var iPAddress = ((IPEndPoint)client.Client.RemoteEndPoint).Address;
+                var iPPort = ((IPEndPoint)client.Client.RemoteEndPoint).Port;
 
-                recv = client.Receive(data);
+                Console.WriteLine("Someone connected!!");
 
-                if (recv == 0)
+                Console.WriteLine("Connected with {0} at port {1}", iPAddress, iPPort);
 
+                lock (_lock) list_clients.Add(count, client);
+                
+                Thread t = new Thread(handle_clients);
+                t.Start(count);
+                count++;
+            }
+        }
+        public static void handle_clients(object o)
+        {
+            int id = (int)o;
+            TcpClient client;
+
+            lock (_lock) client = list_clients[id];
+
+            while (true)
+            {
+                NetworkStream stream = client.GetStream();
+                byte[] buffer = new byte[1024];
+                int byte_count = stream.Read(buffer, 0, buffer.Length);
+
+                if (byte_count == 0)
+                {
                     break;
+                }
 
-                Console.WriteLine("Client: " + Encoding.UTF8.GetString(data, 0, recv));
-
-                input = Console.ReadLine();
-
-                Console.WriteLine("You: " + input);
-
-                client.Send(Encoding.UTF8.GetBytes(input));
+                string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
+                broadcast(data);
+                Console.WriteLine(data);
             }
 
-            Console.WriteLine("Disconnected from {0}", clientep.Address);
-
+            lock (_lock) list_clients.Remove(id);
+            client.Client.Shutdown(SocketShutdown.Both);
             client.Close();
+        }
 
-            newsock.Close();
+        public static void broadcast(string data)
+        {
+            byte[] buffer = Encoding.ASCII.GetBytes(data + Environment.NewLine);
 
-            Console.ReadLine();
+            lock (_lock)
+            {
+                foreach (TcpClient c in list_clients.Values)
+                {
+                    NetworkStream stream = c.GetStream();
+
+                    stream.Write(buffer, 0, buffer.Length);
+                }
+            }
         }
     }
 }
