@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -28,21 +29,42 @@ namespace SocketProgram
             ServerSocket.Start();
 
             while (true)
-            {
+            {           
                 TcpClient client = ServerSocket.AcceptTcpClient();
 
-                var iPAddress = ((IPEndPoint)client.Client.RemoteEndPoint).Address;
-                var iPPort = ((IPEndPoint)client.Client.RemoteEndPoint).Port;
+                if (client.Connected)
+                {
 
-                Console.WriteLine("Someone connected!!");
+                    var random = new Random();
+                    List<string> ClientsName = new List<string> { "Juan", "Pedro", "Andrea" };
+                    Dictionary<int, string> ClientsList = new Dictionary<int, string>();
 
-                Console.WriteLine("Connected with {0} at port {1}", iPAddress, iPPort);
+                    Console.WriteLine("OK.");
 
-                lock (_lock) list_clients.Add(count, client);
-                
-                Thread t = new Thread(handle_clients);
-                t.Start(count);
-                count++;
+                    Console.WriteLine("Incoming connection from: " + client.Client.RemoteEndPoint);
+
+                    lock (_lock) list_clients.Add(count, client);
+
+                    //foreach (var clientes in list_clients)
+                    //{
+                    //    int index = random.Next(ClientsName.Count);
+
+                    //    if (!ClientsList.ContainsKey(clientes.Key))
+                    //    {
+                    //        ClientsList.Add(clientes.Key, ClientsName[index]);
+                    //    }
+                    //}
+
+                    //string clientname = ClientsList.Where(x => x.Key == count).Select(c => c.Value).FirstOrDefault();
+
+
+                    Thread t = new Thread(handle_clients);
+                    t.Start(count);
+                    count++;
+                }else
+                {
+                    Console.WriteLine("Out of service.");
+                }
             }
         }
         public static void handle_clients(object o)
@@ -62,10 +84,11 @@ namespace SocketProgram
                 {
                     break;
                 }
-
+                
                 string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
                 broadcast(data);
-                Console.WriteLine(data);
+                Console.WriteLine(client.Client.RemoteEndPoint + " Says: "
+                    + data);
             }
 
             lock (_lock) list_clients.Remove(id);
