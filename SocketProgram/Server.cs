@@ -9,7 +9,7 @@ namespace SocketProgram
 {
     class Server
     {
-        private const string commandString = "Welcome to chat.\n!users - prints online users.\n!msg [user] [message] - sends a message to someone.\n!rename - changes your name.";
+        private const string commandString = "Welcome to chat.\n!users - prints online users.\n!msgto [user] [message] - sends a message to someone.\n!rename - changes your name.\n";
 
         public Thread Thread { get; private set; }
 
@@ -67,7 +67,7 @@ namespace SocketProgram
                 Client client = new Client
                 {
                     ID = UserIdCounter,
-                    Username = $"User #1{UserIdCounter}" ,
+                    Username = $"User #{UserIdCounter}" ,
                 };
                 try
                 {
@@ -127,14 +127,14 @@ namespace SocketProgram
                                     if (user.Username == username)
                                     {
                                         IsFree = false;
-                                        response = "That name has already been used.";
+                                        response = "That name has already been used.\n";
                                         break;
                                     }
                                 }
                                 if (IsFree)
                                 {
                                     client.Username = username;
-                                    response = $"Your name has been updated to: {username}";
+                                    response = $"Your name has been updated to: {username}\n";
                                 }
                             }
                         }
@@ -146,24 +146,31 @@ namespace SocketProgram
                                 response = $"{response} - {user.Username} \n";
                             }
                         }
-                        if (strMessage.Substring(0, 4) == "!msg")
+                        if (strMessage.Substring(0, 6) == "!msgto")
                         {
                             bool IsSend = false;
                             strMessage = strMessage.Trim('\0');
-                            strMessage = strMessage.Replace("!msg ", "");
+                            strMessage = strMessage.Replace("!msgto ", "");
                             int pos = strMessage.IndexOf(" ");
                             if (pos > 0)
                             {
-                                string msg = $"{client.Username}: {strMessage.Substring(pos)}";
+                                string msgto = client.Username + ":" + strMessage.Substring(pos);
+                                string username = strMessage.Substring(0, pos);
                                 foreach (Client user in ClientList)
                                 {
-                                    IsSend = SendMessage(user, msg);
-
+                                    if (user.Username == username)
+                                    {
+                                        IsSend = SendMessage(user, msgto);
+                                    }
                                 }
                                 if (!IsSend)
                                 {
-                                    response = "Message couldn't be sent.";
+                                    response = "Can't send message to " + username;
                                 }
+                            }
+                            else
+                            {
+                                response = "/msgto [user] [message] - to send message";
                             }
                         }
                         SendMessage(client, response);
@@ -171,7 +178,6 @@ namespace SocketProgram
                 }
                 catch (SocketException)
                 {
-                    // The exchange goes while there is a connection with the client's socket
                     ClientList.Remove(client);
                     Console.WriteLine($"{client.Username} disconnected.");
                     client.Dispose();
@@ -180,7 +186,7 @@ namespace SocketProgram
             }
         }
 
-        public void Work()
+        public void Init()
         {
             Console.WriteLine("Server configuration...");
             Console.Write("Which port you wish to listen at?: ");
@@ -197,20 +203,20 @@ namespace SocketProgram
             while (true)
             {
                 input = Console.ReadLine();
-                if (input.IndexOf("/users") >= 0)
+                if (input.IndexOf("!users") >= 0)
                 {
                     foreach (Client client in ClientList)
                     {
-                        Console.WriteLine($"Id = {client.ID} - {client.Username}");
+                        Console.WriteLine($"{client.ID} - {client.Username}");
                     }
                 }
 
-                if (input.IndexOf("/stop") >= 0)
+                if (input.IndexOf("!stop") >= 0)
                 {
                     this.Stop();
                 }
 
-                if (input.IndexOf("/exit") >= 0)
+                if (input.IndexOf("!exit") >= 0)
                 {
                     this.Stop();
                     return;
@@ -259,7 +265,6 @@ namespace SocketProgram
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Stopping server...");
             ServerStatus = false;
-            //disconnect clients
             while (ClientList.Count != 0)
             {
                 Client client = ClientList[0];

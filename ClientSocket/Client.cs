@@ -8,7 +8,7 @@ namespace ClientSocket
 {
     public class Client
     {
-        private const string StrHelp = "Client commands.\n!connect - connects you to the server.\n!joinchat - to start chatting\n!stop - to stop chatting\n/exit - to exit program";
+        private const string StrHelp = "Client commands.\n!connect - connects you to the server.\n!exit - to exit program\n";
 
         public Socket Socket { get; private set; }
 
@@ -40,7 +40,7 @@ namespace ClientSocket
             IsChatting = false;
         }
 
-        public void Work()
+        public void Init()
         {
             Console.WriteLine(StrHelp);
             while (true)
@@ -81,9 +81,8 @@ namespace ClientSocket
         {
             if (IsConnected) return;
             Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            Console.Write("Enter the server IP you wish to connect to: ");
-            string input = Console.ReadLine();
-            if (IPAddress.TryParse(input, out IPAddress serverip))
+            
+            if (IPAddress.TryParse("127.0.0.1", out IPAddress serverip))
             {
                 ServerIp = serverip;
             }
@@ -92,9 +91,7 @@ namespace ClientSocket
                 Console.WriteLine("You must enter valid IP. Try again.");
                 return;
             }
-            Console.Write("Enter server port: ");
-            input = Console.ReadLine();
-            if (Int32.TryParse(input, out int port))
+            if (Int32.TryParse("3000", out int port))
             {
                 ServerPort = port;
             }
@@ -107,7 +104,7 @@ namespace ClientSocket
             {
                 Socket.Connect(ServerIp, ServerPort);
                 IsConnected = true;
-                Console.WriteLine("Connected.\n/start - to start chatting.");
+                Console.WriteLine("Connected.\n!joinchat - to start chatting.\n");
             }
             catch
             {
@@ -135,10 +132,10 @@ namespace ClientSocket
         {
             if (!IsConnected)
             {
-                Console.WriteLine("You are not connected.\n/connect - to conect to server.");
+                Console.WriteLine("You are not connected.\n!connect - to conect to server.\n");
                 return;
             }
-            Console.WriteLine("Start chatting.\n!stop - to stop chatting.");
+            Console.WriteLine("Start chatting.\n!stop - to stop chatting.\n");
             IsChatting = true;
             Thread = new Thread(GetMessages);
             Thread.Start();
