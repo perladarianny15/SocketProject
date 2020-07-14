@@ -2,13 +2,17 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Data;
+using System.Data.SqlClient;
 using System.Threading;
 
 namespace ClientSocket
 {
     public class Client
     {
-        private const string StrHelp = "Client commands.\n!connect - connects you to the server.\n!exit - to exit program\n";
+        private const string StrHelp = "Client commands.\n!signup [username] [password] \n!signin [username] [password] - connects you to the server.\n!exit - to exit program\n";
+
+        string connectionString = @"YOUR CONNECTION STRING";
 
         public Socket Socket { get; private set; }
 
@@ -21,6 +25,8 @@ namespace ClientSocket
         private Thread Thread { get; set; }
 
         private bool IsChatting { get; set; }
+
+        private string Username { get; set; }
 
         public static bool IsSocketConnected(Socket s)
         {
@@ -48,10 +54,38 @@ namespace ClientSocket
                 string input = Console.ReadLine();
                 if (!IsChatting)
                 {
-                    if (input.IndexOf("!connect") >= 0)
+                    if (input.IndexOf("!signin") >= 0)
                     {
-                        this.Connect();
+                        string[] args = input.Split(" ");
+
+                        Username = args[1];
+                        string password = args[2];
+                        bool doesUserExist = UserExists(Username);
+
+                        if (doesUserExist)
+                        {
+                            if (VerifyUser(Username, password))
+                            {
+                                Console.WriteLine("You have logged in succesfully.");
+                                this.Connect();
+                            }
+                            else
+                            {
+                                Console.WriteLine("Your credentials are not correct.");
+                            }
+                        }
                     }
+
+                    if (input.IndexOf("!signup") >= 0)
+                    {
+                        string[] args = input.Split(" ");
+                        Username = args[1];
+                        string password = args[2];
+
+                        CreateUser(Username, password);
+
+                    }
+
 
                     if (input.IndexOf("!disconnect") >= 0)
                     {
@@ -77,12 +111,111 @@ namespace ClientSocket
             }
         }
 
+
+        private bool VerifyUser(string username, string password)
+        {
+            bool result = false;
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                try
+                {
+                    using (SqlCommand command = new SqlCommand(
+                        "Select * from Users where username=@Username", connection))
+                    {
+                        command.Parameters.Add(new SqlParameter("Username", username));
+                        SqlDataReader reader = command.ExecuteReader();
+                        while (reader.Read())
+                        {
+                            string dbUsername = reader.GetString(1);
+                            string dbPassword = reader.GetString(2);
+
+                            if (username == dbUsername && password == dbPassword)
+                            {
+                                result = true;
+                            }
+                        }
+
+                        connection.Close();
+
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+
+            }
+
+            return result;
+        }
+
+        private bool UserExists(string username)
+        {
+            bool result = false;
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                try
+                {
+                    using (SqlCommand command = new SqlCommand(
+                        "Select * from Users where username=@Username", connection))
+                    {
+                        command.Parameters.Add(new SqlParameter("Username", username));
+                        command.ExecuteNonQuery();
+                        // int result = command.ExecuteNonQuery();
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                result = true;
+                            }
+                        }
+                    }
+
+                    connection.Close();
+
+                }
+                catch
+                {
+                    Console.WriteLine("Count not search for the user.");
+                }
+
+            }
+
+            return result;
+        }
+
+        private void CreateUser(string username, string password)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                try
+                {
+                    using (SqlCommand command = new SqlCommand(
+                        "INSERT INTO Users VALUES(@Username, @Password)", connection))
+                    {
+                        command.Parameters.Add(new SqlParameter("Username", username));
+                        command.Parameters.Add(new SqlParameter("Password", password));
+                        command.ExecuteNonQuery();
+                    }
+                    Console.WriteLine("The user has been created.");
+                }
+                catch
+                {
+                    Console.WriteLine("Count not insert.");
+                }
+            }
+
+        }
+
         private void Connect()
         {
             if (IsConnected) return;
             Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            
-            if (IPAddress.TryParse("127.0.0.1", out IPAddress serverip))
+
+            if (IPAddress.TryParse("YourServerIP", out IPAddress serverip))
             {
                 ServerIp = serverip;
             }
@@ -139,6 +272,9 @@ namespace ClientSocket
             IsChatting = true;
             Thread = new Thread(GetMessages);
             Thread.Start();
+            byte[] clientUser = Encoding.Unicode.GetBytes(Username);
+            Socket.Send(clientUser);
+
             while (IsChatting)
             {
                 string input = Console.ReadLine();

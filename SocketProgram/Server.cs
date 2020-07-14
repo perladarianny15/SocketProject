@@ -64,18 +64,27 @@ namespace SocketProgram
         {
             while (ServerStatus)
             {
-                Client client = new Client
-                {
-                    ID = UserIdCounter,
-                    Username = $"User #{UserIdCounter}" ,
-                };
+                Client client = new Client();
                 try
                 {
                     client.Socket = ListeningSocket.Accept();
+
+                    // Receive username from client
+                    byte[] buff = new byte[512];
+
+                    int res = client.Socket.Receive(buff);
+
+                    string response = string.Empty;
+                    string strMessage = Encoding.Unicode.GetString(buff);
+
+                    client.Username = strMessage.Trim('\0');
+
                     client.thread = new Thread(() => ProcessMessaging(client));
+
                     Console.WriteLine($"{client.Username} has joined the chat.");
-                    UserIdCounter += 1;
+
                     ClientList.Add(client);
+
                     client.thread.Start();
                 }
                 catch (Exception)
@@ -188,13 +197,8 @@ namespace SocketProgram
 
         public void Init()
         {
-            Console.WriteLine("Server configuration...");
-            Console.Write("Which port you wish to listen at?: ");
-            string input = Console.ReadLine();
-            if (Int32.TryParse(input, out int port))
-            {
-                Port = port;
-            }
+            Console.WriteLine("Initializing server...");
+            Port = 3000;
             this.Start();
             if (!ServerStatus)
             {
@@ -202,7 +206,7 @@ namespace SocketProgram
             }
             while (true)
             {
-                input = Console.ReadLine();
+                string input = Console.ReadLine();
                 if (input.IndexOf("!users") >= 0)
                 {
                     foreach (Client client in ClientList)
@@ -252,7 +256,7 @@ namespace SocketProgram
             }
             ListeningSocket.Listen(5);
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Server was started.\nWait for connections...");
+            Console.WriteLine($"Server was started on port: {Port}. Waiting for connections...");
             Console.ForegroundColor = ConsoleColor.Gray;
             Thread = new Thread(WaitForConnections);
             Thread.Start();
