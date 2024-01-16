@@ -7,6 +7,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.LiveShare" Version="1.1.57" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.1" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
   </ItemGroup>
 </Project>
